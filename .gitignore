@@ -1,0 +1,11 @@
+*.xls
+*.xlsx
+*.db
+!截图/*.jpg
+*.txt
+.trae/
+TestExcel/
+.trae/*
+bin/
+obj/
+*.user

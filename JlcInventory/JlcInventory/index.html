@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>嘉立创库存计价器</title>
+    <style>
+        :root {
+            --bg-color: #fcfcfc;
+            --text-color: #333;
+            --border-color: #555;
+            --green: #d4edda;
+            --red: #f8d7da;
+            --yellow: #fff3cd;
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Comic Sans MS', 'Chalkboard SE', '微软雅黑', sans-serif;
+            box-sizing: border-box;
+        }
+
+        .main-wrapper {
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container { 
+            max-width: 1100px; 
+            margin: 0 auto; 
+            filter: url(#jitter);
+        }
+
+        svg {
+            position: absolute;
+            width: 0;
+            height: 0;
+        }
+
+        h1 {
+            text-align: center; border-bottom: 3px solid var(--border-color);
+            padding-bottom: 10px; border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+        }
+
+        .tabs { display: flex; margin-bottom: 20px; gap: 10px; }
+
+        .tab-btn {
+            background: transparent; border: 2px solid var(--border-color);
+            padding: 10px 20px; cursor: pointer; font-size: 16px; font-family: inherit;
+            border-radius: 255px 15px 225px 15px/15px 225px 15px 255px; transition: all 0.2s;
+        }
+        .tab-btn.active { background: var(--border-color); color: white; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .action-bar { margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+        button.primary {
+            background: #fff; border: 2px solid var(--border-color); padding: 8px 16px;
+            cursor: pointer; font-family: inherit; font-weight: bold;
+            border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+        }
+        button.primary:hover { background: #eee; }
+
+        input {
+            border: 2px solid var(--border-color); padding: 6px 10px; font-family: inherit;
+            background: transparent; border-radius: 10px 255px 10px 255px/255px 10px 255px 10px; outline: none;
+        }
+
+        table { width: 100%; border-collapse: collapse; border: 2px solid var(--border-color); }
+        th, td { border: 1px solid var(--border-color); padding: 10px; text-align: left; }
+        th { background-color: rgba(0,0,0,0.05); }
+        td { transition: background 0.2s; }
+        td.editable:hover { background: rgba(0,0,0,0.05); cursor: pointer; }
+
+        .row-green { background-color: var(--green); }
+        .row-red { background-color: var(--red); }
+        .row-yellow { background-color: var(--yellow); }
+
+        /* Modal Styles */
+        #modal-overlay, .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 9999;
+            justify-content: center; align-items: center;
+        }
+        .modal-overlay.active { display: flex; }
+
+        #import-modal, .modal {
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: var(--bg-color); border: 3px solid var(--border-color);
+            border-radius: 255px 15px 225px 15px/15px 225px 15px 255px; padding: 30px;
+            z-index: 10000; box-shadow: 4px 4px 0 rgba(0,0,0,0.2); width: 800px; max-width: 90vw;
+            max-height: 90vh; overflow-y: auto; overflow-x: hidden;
+        }
+        .modal-overlay .modal {
+            position: relative; top: auto; left: auto; transform: none; display: block;
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px; }
+        .modal-header h2 { margin: 0; }
+        .close-btn { background: transparent; border: none; font-size: 24px; cursor: pointer; font-weight: bold; }
+        .modal-close { float: right; cursor: pointer; font-size: 20px; font-weight: bold; }
+        
+        .modal-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px; }
+        .modal-tab-btn {
+            background: transparent; border: 2px solid var(--border-color);
+            padding: 5px 15px; cursor: pointer; font-family: inherit; font-size: 14px;
+            border-radius: 15px; transition: all 0.2s;
+        }
+        .modal-tab-btn.active { background: var(--border-color); color: white; }
+        .modal-tab-content { display: none; }
+        .modal-tab-content.active { display: block; }
+
+        .form-group { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; align-items: center; }
+        .smart-parse-box { width: 100%; margin-bottom: 10px; }
+        .smart-parse-box textarea {
+            width: 100%; height: 60px; border: 2px dashed var(--border-color);
+            border-radius: 10px; padding: 10px; font-family: inherit; box-sizing: border-box;
+            background: rgba(0,0,0,0.02); resize: vertical; outline: none;
+        }
+        
+        .floating-bottom-bar {
+            position: fixed; bottom: 0; left: 0; right: 0; width: 100vw;
+            background: var(--bg-color); border-top: 3px solid var(--border-color);
+            padding: 15px 30px; box-shadow: 0 -4px 10px rgba(0,0,0,0.1); z-index: 1000;
+            display: none; justify-content: center; align-items: center; gap: 15px;
+            box-sizing: border-box;
+        }
+
+        /* Toast Notification - 同画风 */
+        #toast {
+            position: fixed;
+            top: -100px; /* Hidden above */
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-color);
+            border: 3px solid var(--border-color);
+            border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+            padding: 15px 30px;
+            box-shadow: 4px 4px 0 rgba(0,0,0,0.2);
+            z-index: 2000;
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--text-color);
+            transition: top 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+        }
+        #toast.show {
+            top: 20px;
+        }
+        
+        /* Log Styles */
+        .log-item {
+            border: 2px solid var(--border-color); border-radius: 10px; margin-bottom: 10px;
+            background: transparent;
+        }
+        .log-header {
+            padding: 10px 15px; cursor: pointer; display: flex; justify-content: space-between;
+            align-items: center; background: rgba(0,0,0,0.02); border-radius: 10px;
+        }
+        .log-header:hover { background: rgba(0,0,0,0.05); }
+        .log-details {
+            padding: 15px; border-top: 2px dashed var(--border-color); display: none;
+        }
+        .log-details.open { display: block; }
+    </style>
+</head>
+<body>
+
+    <!-- 滤镜定义区，移除导致页面波动的 feTurbulence 动画相关 -->
+    <svg>
+        <filter id="jitter">
+            <!-- 保留轻微滤镜，但去除波动干扰 -->
+        </filter>
+    </svg>
+
+    <div id="modal-overlay" onclick="closeModal()"></div>
+    <div id="import-modal">
+        <span class="modal-close" onclick="closeModal()">×</span>
+        <h2>📥 导入面板</h2>
+        
+        <div class="modal-tabs">
+            <button class="modal-tab-btn active" onclick="switchModalTab('smart')">🤖 智能识别</button>
+            <button class="modal-tab-btn" onclick="switchModalTab('single')">➕ 单项添加</button>
+            <button class="modal-tab-btn" onclick="switchModalTab('batch')">📝 批量录入</button>
+            <button class="modal-tab-btn" onclick="switchModalTab('file')">📁 文件导入</button>
+        </div>
+
+        <div id="modal-tab-smart" class="modal-tab-content active">
+            <div style="padding: 15px; border: 2px dashed var(--border-color); border-radius: 15px; background: transparent;">
+                <div class="smart-parse-box">
+                    <textarea id="smart-text-modal" placeholder="请粘贴一段包含元件信息的文本 (如：贴片电阻 0805 10k 100个 0.05元)"></textarea>
+                </div>
+                <button class="primary" onclick="smartParse('modal'); switchModalTab('single')">✨ 自动识别并转到单项添加</button>
+            </div>
+        </div>
+
+        <div id="modal-tab-single" class="modal-tab-content">
+            <div style="padding: 15px; border: 2px dashed var(--border-color); border-radius: 15px; background: transparent;">
+                <div class="form-group">
+                    <input type="text" id="add-cat-modal" list="list-cat" placeholder="目录(类目)">
+                    <input type="text" id="add-name-modal" list="list-name" placeholder="型号">
+                    <input type="text" id="add-footprint-modal" list="list-fp" placeholder="封装">
+                    <input type="number" id="add-qty-modal" list="list-qty" placeholder="入库数量">
+                    <input type="number" step="0.01" id="add-price-modal" list="list-price" placeholder="单价(可选)">
+                    <button class="primary" onclick="addSingle('modal')">➕ 添加记录</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="modal-tab-batch" class="modal-tab-content">
+            <div style="padding: 15px; border: 2px dashed var(--border-color); border-radius: 15px; background: transparent;">
+                <div class="form-group">
+                    <input type="text" id="batch-cat" list="list-cat" placeholder="共享目录(类目)" style="flex:1;">
+                    <input type="text" id="batch-fp" list="list-fp" placeholder="共享封装(可选)" style="flex:1;">
+                </div>
+                <textarea id="batch-text" placeholder="每行输入一个元件： 型号 数量 [单价]&#10;例如：&#10;10k 50 0.01&#10;100nF 100" style="width: 100%; height: 120px; border: 2px dashed var(--border-color); border-radius: 10px; padding: 10px; font-family: inherit; margin-bottom: 10px; outline: none; background: rgba(0,0,0,0.02); box-sizing: border-box;"></textarea>
+                <button class="primary" onclick="batchAdd()">📝 批量录入以上项目</button>
+            </div>
+        </div>
+
+        <div id="modal-tab-file" class="modal-tab-content">
+            <div style="padding: 15px; border: 2px dashed var(--border-color); border-radius: 15px; background: transparent;">
+                <button class="primary" onclick="importInventory()">📁 导入嘉立创/标准表格</button>
+                <p style="font-size: 0.9em; color: #666; margin-top: 10px;">（说明：将表格的"库存"或"购买数量"列改为您实际持有的数量导入即可自动更新）</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast">✨ 操作成功 ✨</div>
+
+    <!-- Datalists for Auto-complete -->
+    <datalist id="list-cat"></datalist>
+    <datalist id="list-name"></datalist>
+    <datalist id="list-fp"></datalist>
+    <datalist id="list-qty"></datalist>
+    <datalist id="list-price"></datalist>
+
+    <div class="main-wrapper">
+        <div class="container">
+            <h1>✨ 嘉立创库存计价器 ✨</h1>
+        
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('compare')">对比报价单</button>
+            <button class="tab-btn" onclick="switchTab('inventory')">库存管理</button>
+            <button class="tab-btn" onclick="switchTab('logs')">操作日志</button>
+        </div>
+
+        <div id="compare" class="tab-content active" style="padding-bottom: 80px;">
+            <div class="action-bar">
+                <button class="primary" onclick="compareBom()">📄 导入报价单比对</button>
+                <span style="font-size: 0.9em; color: #666;">（绿行=库存充足且价格划算；红行=库存不足）</span>
+            </div>
+            <div id="compare-summary" style="margin-bottom: 10px; font-weight: bold; font-size: 1.1em; color: #d9534f;"></div>
+            <table id="compare-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40px; text-align: center;"><input type="checkbox" id="check-all" onclick="toggleAllChecks(this)"></th>
+                        <th>类目</th>
+                        <th>型号</th>
+                        <th>封装</th>
+                        <th>真实需求</th>
+                        <th>起购数量</th>
+                        <th>本地库存</th>
+                        <th>JLC单价</th>
+                        <th>本地单价</th>
+                        <th>JLC总价</th>
+                        <th>本地总价</th>
+                        <th>状态</th>
+                    </tr>
+                </thead>
+                <tbody><tr><td colspan="12" style="text-align:center">请导入报价单</td></tr></tbody>
+            </table>
+        </div>
+
+        <div id="inventory" class="tab-content">
+            <div class="action-bar">
+                <button class="primary" onclick="openModal()">📥 打开导入面板</button>
+                <button class="primary" onclick="exportInventory()">📤 导出本地库存(同嘉立创格式)</button>
+                <span style="font-size: 0.9em; color: #666; margin-right: auto;">提示：双击表格单元格可修改。点击表头可排序。</span>
+                
+                <select id="inv-filter-cat" onchange="renderInventory()" style="border: 2px solid var(--border-color); padding: 6px 10px; border-radius: 10px; font-family: inherit; outline: none; background: transparent;">
+                    <option value="">全部类目</option>
+                </select>
+                <input type="text" id="inv-search" placeholder="搜索型号/封装..." oninput="renderInventory()" style="width: 150px;">
+            </div>
+
+            <div style="padding: 15px; border: 2px dashed var(--border-color); border-radius: 15px; margin-bottom: 20px; background: transparent;">
+                <h3>🤖 智能识别录入 / 单项快速导入</h3>
+                <div class="smart-parse-box">
+                    <textarea id="smart-text-inline" placeholder="请粘贴一段包含元件信息的文本 (如：贴片电阻 0805 10k 100个 0.05元)"></textarea>
+                </div>
+                <button class="primary" onclick="smartParse('inline')">✨ 自动识别并填充</button>
+                <hr style="border: 1px dashed var(--border-color); margin: 15px 0; opacity: 0.3;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <input type="text" id="add-cat-inline" list="list-cat" placeholder="目录(类目)">
+                    <input type="text" id="add-name-inline" list="list-name" placeholder="型号">
+                    <input type="text" id="add-footprint-inline" list="list-fp" placeholder="封装">
+                    <input type="number" id="add-qty-inline" list="list-qty" placeholder="入库数量">
+                    <input type="number" step="0.01" id="add-price-inline" list="list-price" placeholder="单价(可选)">
+                    <button class="primary" onclick="addSingle('inline')">➕ 添加记录</button>
+                </div>
+            </div>
+
+            <div id="inv-summary" style="margin-bottom: 10px; font-weight: bold; font-size: 1.1em; color: #5cb85c;"></div>
+            <table id="inv-table">
+                <thead>
+                    <tr>
+                        <th style="cursor:pointer;" onclick="sortInventory('category')">类目(目录) ↕</th>
+                        <th style="cursor:pointer;" onclick="sortInventory('name')">型号 ↕</th>
+                        <th style="cursor:pointer;" onclick="sortInventory('footprint')">封装 ↕</th>
+                        <th style="cursor:pointer;" onclick="sortInventory('quantity')">库存数量 ↕</th>
+                        <th style="cursor:pointer;" onclick="sortInventory('price')">记录单价 ↕</th>
+                        <th>单项总价</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div id="logs" class="tab-content" style="padding-bottom: 80px;">
+            <div class="action-bar">
+                <button class="primary" onclick="loadLogs()">🔄 刷新日志</button>
+                <span style="font-size: 0.9em; color: #666;">（点击日志条目可展开详情，支持快照回退）</span>
+            </div>
+            <div id="logs-container">
+                <!-- 日志列表将动态生成 -->
+            </div>
+        </div>
+    </div> <!-- end container -->
+    </div> <!-- end main-wrapper -->
+    
+    <div class="floating-bottom-bar" id="settle-bar">
+        <span style="font-weight: bold; margin-right: auto;" id="settle-totals"></span>
+        <button class="primary" style="background: #fff3cd; font-size: 16px;" onclick="document.getElementById('check-all').click()">☑️ 全选/取消全选</button>
+        <button class="primary" style="background: #d4edda; font-size: 16px;" onclick="settleSelected()">🛒 一键扣除勾选库存</button>
+    </div>
+
+    <!-- 自定义对话框 -->
+    <div id="custom-dialog-overlay" class="modal-overlay">
+        <div class="modal" style="max-width: 450px; text-align: center;">
+            <h3 id="custom-dialog-title" style="margin-top: 0; color: #333;">提示</h3>
+            <p id="custom-dialog-msg" style="white-space: pre-wrap; text-align: left; color: #555; line-height: 1.5;"></p>
+            <div style="margin-top: 25px; text-align: right;">
+                <button class="secondary" id="custom-dialog-cancel" style="display:none;" onclick="closeCustomDialog(false)">取消</button>
+                <button class="primary" id="custom-dialog-ok" onclick="closeCustomDialog(true)">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导入确认弹窗 -->
+    <div id="import-confirm-modal" class="modal-overlay" style="z-index: 10001;">
+        <div class="modal" style="max-width: 800px; max-height: 80vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <h2>📦 确认导入库存</h2>
+                <button class="close-btn" onclick="document.getElementById('import-confirm-modal').classList.remove('active')">×</button>
+            </div>
+            <div style="padding: 10px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px;">
+                <label style="font-weight: bold;"><input type="checkbox" id="import-check-all" checked onchange="toggleImportChecks(this)"> 全选当前列表</label>
+            </div>
+            <div style="overflow-y: auto; flex: 1; border: 1px solid #ddd; border-radius: 8px;">
+                <table id="import-confirm-table" style="width: 100%; border-collapse: collapse;">
+                    <thead style="position: sticky; top: 0; background: #f8f9fa;">
+                        <tr>
+                            <th style="width: 40px; text-align: center;">选择</th>
+                            <th>类目</th>
+                            <th>型号</th>
+                            <th>封装</th>
+                            <th>数量</th>
+                            <th>单价</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div style="text-align: right; margin-top: 15px;">
+                <button class="secondary" onclick="document.getElementById('import-confirm-modal').classList.remove('active')">取消</button>
+                <button class="primary" onclick="executeImport()">✅ 确认导入勾选项</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+        const api = {
+            callbacks: {}, id: 0,
+            invoke: function(method, args) {
+                return new Promise((resolve) => {
+                    const cbId = ++this.id;
+                    this.callbacks[cbId] = resolve;
+                    window.chrome.webview.postMessage(JSON.stringify({ method, args, cbId }));
+                });
+            }
+        };
+
+        window.chrome.webview.addEventListener('message', event => {
+            const res = JSON.parse(event.data);
+            if(api.callbacks[res.cbId]) {
+                api.callbacks[res.cbId](res.data);
+                delete api.callbacks[res.cbId];
+            }
+        });
+
+        // 同画风 Toast
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = `✨ ${msg} ✨`;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2500); // 弹窗快速收回
+        }
+
+        function switchModalTab(tabId) {
+            document.querySelectorAll('.modal-tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.modal-tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(`modal-tab-${tabId}`).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            
+            // Handle cases where the event is triggered by a button click
+            if (event && event.target && event.target.classList.contains('tab-btn')) {
+                event.target.classList.add('active');
+            } else {
+                // Find the corresponding tab button and set it active
+                const tabBtns = document.querySelectorAll('.tab-btn');
+                for (let i = 0; i < tabBtns.length; i++) {
+                    if (tabBtns[i].getAttribute('onclick').includes(tabId)) {
+                        tabBtns[i].classList.add('active');
+                        break;
+                    }
+                }
+            }
+            
+            // 修复底栏浮窗串台问题
+            const settleBar = document.getElementById('settle-bar');
+            if (tabId === 'compare' && currentCompareData && currentCompareData.length > 0) {
+                settleBar.style.display = 'flex';
+            } else {
+                settleBar.style.display = 'none';
+            }
+
+            if (tabId === 'inventory') loadInventory();
+            if (tabId === 'logs') loadLogs();
+        }
+
+        let currentCompareData = [];
+        let currentCompareFilename = "";
+        let currentInventoryData = [];
+
+        // 预设常见的类目（由用户提供，斜杠拆分为独立项）
+        const defaultCategories = [
+            "电容", "电阻", "连接器", "二极管", "电源管理", "光电器件", 
+            "电感", "线圈", "变压器", "存储器", "传感器", "继电器", 
+            "功能模块", "物联网模块", "通信模块", "单片机", "微控制器", 
+            "逻辑器件", "时钟和定时", "ADC", "DAC", "数据转换", 
+            "射频芯片", "天线", "运算放大器", "比较器", "通信接口芯片", 
+            "数码管驱动", "LED驱动", "三极管", "MOS管", "晶体管", 
+            "振荡器", "谐振器", "音频器件", "振动马达", "TVS", "保险丝", "板级保护", 
+            "按键", "开关", "电子工具", "仪器", "耗材", "方案验证板", 
+            "电机驱动芯片", "磁传感器", "端子", "电源模块", "碳化硅(SiC)器件", 
+            "氮化镓(GaN)器件", "光耦", "显示屏", "信号隔离器件", 
+            "磁珠", "滤波器", "EMI优化"
+        ];
+        const defaultFootprints = ["0402", "0603", "0805", "1206", "1210", "SOT-23", "SOT-89", "SOT-223", "SOP-8", "SSOP-8", "QFN", "QFP", "DIP", "SMA", "SMB", "SMC", "DO-214AC", "DO-214AB"];
+
+        // 智能补全输入事件
+        function handleNameInput(e, listId, catId) {
+            const val = e.target.value.trim();
+            const cat = document.getElementById(catId) ? document.getElementById(catId).value : '';
+            if (!val) return;
+            
+            let baseUnit = "";
+            if (cat === "电阻") baseUnit = "Ω";
+            else if (cat === "电容") baseUnit = "F";
+            else if (cat === "电感" || cat === "线圈") baseUnit = "H";
+            else if (cat === "振荡器" || cat === "谐振器") baseUnit = "Hz";
+            
+            // 如果输入纯数字或带有单位前缀的数字，动态推测并更新补全列表
+            if (/^\d+(\.\d+)?$/.test(val) || /^\d+(\.\d+)?[kKmMuUnNpP]?$/.test(val)) {
+                let suggestions = [];
+                if (baseUnit === "Ω") suggestions = [val + "Ω", val + "kΩ", val + "MΩ"];
+                else if (baseUnit === "F") suggestions = [val + "pF", val + "nF", val + "uF"];
+                else if (baseUnit === "H") suggestions = [val + "nH", val + "uH", val + "mH"];
+                else if (baseUnit === "Hz") suggestions = [val + "MHz", val + "kHz", val + "Hz"];
+                else suggestions = [val + "Ω", val + "kΩ", val + "MΩ", val + "uF", val + "nF", val + "pF", val + "uH", val + "MHz"];
+
+                const dbNames = currentInventoryData.filter(d => !cat || d.category === cat).map(d => d.name);
+                populateDatalist(listId, [...dbNames, ...suggestions]);
+            }
+        }
+
+        document.getElementById('add-name-inline').addEventListener('input', (e) => handleNameInput(e, 'list-name', 'add-cat-inline'));
+        document.getElementById('add-name-modal').addEventListener('input', (e) => handleNameInput(e, 'list-name', 'add-cat-modal'));
+
+        function autoFormatName(name, category) {
+            if (!category || !name) return name;
+            let baseUnit = "";
+            if (category === "电阻") baseUnit = "Ω";
+            else if (category === "电容") baseUnit = "F";
+            else if (category === "电感" || category === "线圈") baseUnit = "H";
+            else if (category === "振荡器" || category === "谐振器") baseUnit = "Hz";
+            else return name;
+
+            const match = name.match(/^([\d\.]+)([kKmMuUnNpP]?)(.*)$/);
+            if (match) {
+                const num = match[1];
+                let mult = match[2];
+                let existingUnit = match[3].trim();
+                
+                if (existingUnit.toUpperCase() === baseUnit.toUpperCase()) {
+                    existingUnit = baseUnit;
+                } else if (existingUnit === "") {
+                    existingUnit = baseUnit;
+                }
+                
+                if (mult.toLowerCase() === 'k') mult = 'k';
+                if (mult === 'm' && baseUnit === 'Ω') mult = 'm';
+                if (mult.toUpperCase() === 'M') mult = 'M';
+                
+                return num + mult + existingUnit;
+            }
+            return name;
+        }
+
+        function toggleAllChecks(source) {
+            const checks = document.querySelectorAll('.row-check');
+            for (let chk of checks) {
+                chk.checked = source.checked;
+            }
+            if (typeof updateSettleBarTotals === 'function') {
+                updateSettleBarTotals();
+            }
+        }
+
+        function openModal() {
+            document.getElementById('modal-overlay').style.display = 'block';
+            document.getElementById('import-modal').style.display = 'block';
+        }
+        function closeModal() {
+            document.getElementById('modal-overlay').style.display = 'none';
+            document.getElementById('import-modal').style.display = 'none';
+        }
+
+        function populateDatalist(id, items) {
+            const dl = document.getElementById(id);
+            dl.innerHTML = '';
+            [...new Set(items)].filter(Boolean).forEach(val => {
+                const opt = document.createElement('option');
+                opt.value = val;
+                dl.appendChild(opt);
+            });
+        }
+
+        function makeEditable(el, id, field) {
+            if (el.querySelector('input')) return;
+            const oldVal = el.innerText;
+            const input = document.createElement('input');
+            input.value = oldVal;
+            input.style.width = '100%';
+            input.style.boxSizing = 'border-box';
+            
+            input.onblur = async function() {
+                const newVal = input.value;
+                el.innerText = newVal;
+                if (newVal !== oldVal) {
+                    await api.invoke('UpdateItem', { id: id, field: field, value: newVal });
+                    loadInventory(); // 重新加载以防格式变化
+                }
+            };
+            input.onkeydown = function(e) { if (e.key === 'Enter') input.blur(); };
+            
+            el.innerText = '';
+            el.appendChild(input);
+            input.focus();
+        }
+
+        let currentSortCol = 'id';
+        let currentSortAsc = false;
+
+        function sortInventory(col) {
+            if (currentSortCol === col) {
+                currentSortAsc = !currentSortAsc;
+            } else {
+                currentSortCol = col;
+                currentSortAsc = true;
+            }
+            renderInventory();
+        }
+
+        function parseValueWithUnit(val) {
+            if (!val) return 0;
+            const match = val.toString().match(/^([\d\.]+)([kKmMuUnNpP]?)/);
+            if (!match) return val.toString(); 
+            const num = parseFloat(match[1]);
+            const mult = match[2];
+            let factor = 1;
+            if (mult === 'p' || mult === 'P') factor = 1e-12;
+            else if (mult === 'n' || mult === 'N') factor = 1e-9;
+            else if (mult === 'u' || mult === 'U') factor = 1e-6;
+            else if (mult === 'm') factor = 1e-3;
+            else if (mult === 'k' || mult === 'K') factor = 1e3;
+            else if (mult === 'M') factor = 1e6;
+            return num * factor;
+        }
+
+        function renderInventory() {
+            const tbody = document.querySelector('#inv-table tbody');
+            tbody.innerHTML = '';
+            
+            const filterCat = document.getElementById('inv-filter-cat').value;
+            const searchTxt = document.getElementById('inv-search').value.toLowerCase().trim();
+            
+            let filtered = currentInventoryData.filter(d => {
+                if (filterCat && d.category !== filterCat) return false;
+                if (searchTxt && !((d.name && d.name.toLowerCase().includes(searchTxt)) || (d.footprint && d.footprint.toLowerCase().includes(searchTxt)))) return false;
+                return true;
+            });
+            
+            filtered.sort((a, b) => {
+                let valA = a[currentSortCol];
+                let valB = b[currentSortCol];
+                
+                if (currentSortCol === 'name') {
+                    valA = parseValueWithUnit(valA);
+                    valB = parseValueWithUnit(valB);
+                }
+                
+                if (valA < valB) return currentSortAsc ? -1 : 1;
+                if (valA > valB) return currentSortAsc ? 1 : -1;
+                return 0;
+            });
+
+            let totalValue = 0;
+            filtered.forEach(row => {
+                const itemTotal = (row.quantity * row.price).toFixed(2);
+                totalValue += parseFloat(itemTotal);
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="editable" ondblclick="makeEditable(this, ${row.id}, 'category')">${row.category}</td>
+                    <td class="editable" ondblclick="makeEditable(this, ${row.id}, 'name')">${row.name}</td>
+                    <td class="editable" ondblclick="makeEditable(this, ${row.id}, 'footprint')">${row.footprint}</td>
+                    <td class="editable" ondblclick="makeEditable(this, ${row.id}, 'quantity')">${row.quantity}</td>
+                    <td class="editable" ondblclick="makeEditable(this, ${row.id}, 'price')">${row.price}</td>
+                    <td style="font-weight: bold; color: #5cb85c;">¥ ${itemTotal}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            document.getElementById('inv-summary').innerText = `📦 当前条件库存总资产：¥ ${totalValue.toFixed(2)}`;
+        }
+
+        async function loadInventory() {
+            const data = await api.invoke('GetInventory', null);
+            currentInventoryData = data;
+            
+            const cats = data.map(d => d.category).filter(Boolean);
+            
+            populateDatalist('list-cat', [...defaultCategories, ...cats]);
+            populateDatalist('list-name', data.map(d => d.name));
+            populateDatalist('list-fp', [...defaultFootprints, ...data.map(d => d.footprint)]);
+            
+            populateDatalist('list-qty', data.map(d => d.quantity));
+            populateDatalist('list-price', data.map(d => d.price));
+
+            const filterSelect = document.getElementById('inv-filter-cat');
+            const currentFilter = filterSelect.value;
+            filterSelect.innerHTML = '<option value="">全部类目</option>';
+            [...new Set(cats)].forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c; opt.innerText = c;
+                filterSelect.appendChild(opt);
+            });
+            filterSelect.value = currentFilter;
+
+            renderInventory();
+            refreshCompareBom(); // 库存变化后自动刷新对比页面
+        }
+
+        async function addSingle(prefix) {
+            const cat = document.getElementById(`add-cat-${prefix}`).value;
+            let name = document.getElementById(`add-name-${prefix}`).value;
+            const fp = document.getElementById(`add-footprint-${prefix}`).value;
+            const qty = document.getElementById(`add-qty-${prefix}`).value;
+            const price = document.getElementById(`add-price-${prefix}`).value;
+
+            name = autoFormatName(name, cat);
+
+            if (!qty || qty <= 0) return customAlert('请输入有效数量');
+            if (!name) return customAlert('型号不能为空');
+
+            const res = await api.invoke('AddSingle', {
+                jlc_id: '', category: cat, name: name, footprint: fp,
+                quantity: parseInt(qty), price: parseFloat(price || 0)
+            });
+
+            if (res.status === 'success') {
+                const nameInput = document.getElementById(`add-name-${prefix}`);
+                nameInput.value = name; // Update UI to show appended unit
+                nameInput.focus();
+                nameInput.select();
+                
+                document.getElementById(`smart-text-modal`).value = '';
+                document.getElementById(`smart-text-inline`).value = '';
+                loadInventory();
+                showToast('添加成功');
+            } else customAlert(res.message);
+        }
+
+        async function batchAdd() {
+            const cat = document.getElementById('batch-cat').value;
+            const fp = document.getElementById('batch-fp').value;
+            const text = document.getElementById('batch-text').value.trim();
+            
+            if (!text) return customAlert('请输入批量添加的内容');
+            
+            const lines = text.split('\n');
+            const itemsToAdd = [];
+            
+            for (let line of lines) {
+                line = line.trim();
+                if (!line) continue;
+                
+                const parts = line.split(/[\s,，\t]+/).filter(Boolean);
+                if (parts.length >= 2) {
+                    let name = parts[0];
+                    name = autoFormatName(name, cat);
+                    
+                    const qty = parseInt(parts[1]);
+                    const price = parts.length >= 3 ? parseFloat(parts[2]) : 0;
+                    
+                    if (!isNaN(qty) && qty > 0) {
+                        itemsToAdd.push({
+                            jlc_id: '', category: cat, name: name, footprint: fp,
+                            quantity: qty, price: price
+                        });
+                    }
+                }
+            }
+            
+            if (itemsToAdd.length === 0) return customAlert('没有解析到有效的行，请检查格式');
+            
+            const res = await api.invoke('BatchAdd', { items: itemsToAdd, filename: '' });
+            if (res.status === 'success') {
+                document.getElementById('batch-text').value = '';
+                loadInventory();
+                showToast(`成功批量录入 ${itemsToAdd.length} 条记录`);
+            } else customAlert(res.message);
+        }
+
+        function smartParse(prefix) {
+            const text = document.getElementById(`smart-text-${prefix}`).value.trim();
+            if (!text) return customAlert("请先粘贴文本");
+
+            // 简单分词，按空格/制表符/逗号分隔
+            const parts = text.split(/[\s,，]+/).filter(Boolean);
+            if (parts.length === 0) return;
+
+            let parsed = { cat: '', name: '', fp: '', qty: '', price: '' };
+
+            // 尝试提取数量 (带有 个/pcs/pcs/只 结尾，或纯数字且数值较大认为是数量)
+            for (let i = 0; i < parts.length; i++) {
+                const p = parts[i];
+                const qtyMatch = p.match(/^(\d+)(个|只|pcs)?$/i);
+                if (qtyMatch && !parsed.qty) {
+                    parsed.qty = qtyMatch[1];
+                    parts[i] = null;
+                    continue;
+                }
+                const priceMatch = p.match(/^(\d+(\.\d+)?)(元|块)?$/i);
+                if (priceMatch && !parsed.price && (p.includes('.') || p.includes('元'))) {
+                    parsed.price = priceMatch[1];
+                    parts[i] = null;
+                    continue;
+                }
+            }
+
+            const remain = parts.filter(Boolean);
+            
+            // 启发式分配剩下的部分：
+            // 含有封装特征的(如 0805, 0603, SOP, SOT, DO-)
+            for (let i = 0; i < remain.length; i++) {
+                if (/(0201|0402|0603|0805|1206|1210|SOP|SOT|QFN|QFP|DO-|SMA|SMB)/i.test(remain[i])) {
+                    parsed.fp = remain[i];
+                    remain[i] = null;
+                    break;
+                }
+            }
+
+            const remain2 = remain.filter(Boolean);
+            if (remain2.length > 0) {
+                parsed.name = remain2.pop(); // 最后一个剩下的当作型号
+            }
+            if (remain2.length > 0) {
+                parsed.cat = remain2.join(' '); // 其余当作类目
+            }
+
+            if (parsed.cat) document.getElementById(`add-cat-${prefix}`).value = parsed.cat;
+            if (parsed.name) document.getElementById(`add-name-${prefix}`).value = parsed.name;
+            if (parsed.fp) document.getElementById(`add-footprint-${prefix}`).value = parsed.fp;
+            if (parsed.qty) document.getElementById(`add-qty-${prefix}`).value = parsed.qty;
+            if (parsed.price) document.getElementById(`add-price-${prefix}`).value = parsed.price;
+        }
+
+        async function importInventory() {
+            const file = await api.invoke('SelectFile', null);
+            if (!file) return;
+            const res = await api.invoke('ImportExcel', file);
+            if (res.status === 'success') {
+                closeModal(); // 关闭底层的“导入面板”
+                showImportConfirmModal(res.data, file);
+            } else {
+                customAlert(res.message);
+            }
+        }
+
+        let importDataCache = [];
+        let importFilenameCache = "";
+
+        function showImportConfirmModal(data, filename) {
+            importDataCache = data;
+            importFilenameCache = filename;
+            const tbody = document.querySelector('#import-confirm-table tbody');
+            tbody.innerHTML = '';
+            
+            data.forEach((row, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="text-align:center;"><input type="checkbox" class="import-row-check" data-index="${idx}" checked></td>
+                    <td>${row.category}</td>
+                    <td>${row.name}</td>
+                    <td>${row.footprint}</td>
+                    <td>${row.quantity}</td>
+                    <td>${row.price}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            document.getElementById('import-check-all').checked = true;
+            document.getElementById('import-confirm-modal').classList.add('active');
+        }
+
+        function toggleImportChecks(source) {
+            document.querySelectorAll('.import-row-check').forEach(cb => cb.checked = source.checked);
+        }
+
+        async function executeImport() {
+            const checks = document.querySelectorAll('.import-row-check:checked');
+            const itemsToAdd = [];
+            for (let chk of checks) {
+                const idx = chk.getAttribute('data-index');
+                itemsToAdd.push(importDataCache[idx]);
+            }
+            if (itemsToAdd.length === 0) {
+                customAlert('请至少勾选一项进行导入');
+                return;
+            }
+            
+            const res = await api.invoke('BatchAdd', { items: itemsToAdd, filename: importFilenameCache });
+            if (res.status === 'success') {
+                document.getElementById('import-confirm-modal').classList.remove('active');
+                showToast(`成功导入 ${itemsToAdd.length} 条记录`);
+                loadInventory();
+            } else {
+                customAlert(res.message);
+            }
+        }
+
+        async function exportInventory() {
+            const res = await api.invoke('ExportExcel', null);
+            if(res && res.status === 'success') {
+                showToast(res.message);
+            } else if (res) {
+                customAlert('导出失败: ' + res.message);
+            }
+        }
+
+        async function loadLogs() {
+            const data = await api.invoke('GetLogs', null);
+            const container = document.getElementById('logs-container');
+            container.innerHTML = '';
+            
+            if (!data || data.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color:#666;">暂无操作日志</p>';
+                return;
+            }
+
+            data.forEach(log => {
+                const item = document.createElement('div');
+                item.className = 'log-item';
+                
+                const header = document.createElement('div');
+                header.className = 'log-header';
+                header.innerHTML = `
+                    <div>
+                        <strong style="color: #333;">[${log.action_type}]</strong> 
+                        <span style="color: #555;">${log.description}</span>
+                    </div>
+                    <div style="font-size: 0.9em; color: #888;">
+                        ${log.timestamp}
+                        <span style="margin-left: 10px;">▼</span>
+                    </div>
+                `;
+                
+                // 将日志详情中 + 号行显示为绿色，- 号行显示为红色，~ 号行显示为黄色
+                let formattedDetails = log.details.split('\n').map(line => {
+                    if (line.startsWith('+')) return `<span style="color: #28a745; font-family: monospace;">${line}</span>`;
+                    if (line.startsWith('-')) return `<span style="color: #dc3545; font-family: monospace;">${line}</span>`;
+                    if (line.startsWith('~')) return `<span style="color: #d39e00; font-family: monospace;">${line}</span>`;
+                    return `<span>${line}</span>`;
+                }).join('<br>');
+
+                const details = document.createElement('div');
+                details.className = 'log-details';
+                details.innerHTML = `
+                    <p style="margin-top: 0; color: #444;"><strong>详细信息：</strong><br>${formattedDetails}</p>
+                    <button class="primary" style="font-size: 0.8em; padding: 4px 10px;" onclick="rollbackLog(${log.id})">⏪ 回退至此状态</button>
+                `;
+                
+                header.onclick = () => {
+                    details.classList.toggle('open');
+                    const arrow = header.querySelector('span:last-child');
+                    arrow.innerText = details.classList.contains('open') ? '▲' : '▼';
+                };
+                
+                item.appendChild(header);
+                item.appendChild(details);
+                container.appendChild(item);
+            });
+        }
+
+        async function rollbackLog(logId) {
+            customConfirm(`确定要回退至此日志记录前的快照状态吗？\n警告：这将覆盖当前所有库存数据！`, async () => {
+                const res = await api.invoke('RollbackLog', logId);
+                if (res.status === 'success') {
+                    showToast('回退成功');
+                    loadInventory();
+                    loadLogs();
+                } else {
+                    customAlert('回退失败: ' + res.message);
+                }
+            });
+        }
+
+        function closeCustomDialog(isOk) {
+            document.getElementById('custom-dialog-overlay').classList.remove('active');
+            if (isOk && customDialogCallback) customDialogCallback();
+        }
+
+        async function compareBom() {
+            const file = await api.invoke('SelectFile', null);
+            if (!file) return;
+            currentCompareFilename = file; // 保存文件名以便日志记录使用
+            await refreshCompareBom();
+        }
+        
+        let customDialogCallback = null;
+        function customAlert(msg) {
+            document.getElementById('custom-dialog-title').innerText = '提示';
+            document.getElementById('custom-dialog-msg').innerText = msg;
+            document.getElementById('custom-dialog-cancel').style.display = 'none';
+            document.getElementById('custom-dialog-overlay').classList.add('active');
+            customDialogCallback = null;
+        }
+        
+        function customConfirm(msg, onConfirm) {
+            document.getElementById('custom-dialog-title').innerText = '确认操作';
+            document.getElementById('custom-dialog-msg').innerText = msg;
+            document.getElementById('custom-dialog-cancel').style.display = 'inline-block';
+            document.getElementById('custom-dialog-overlay').classList.add('active');
+            customDialogCallback = onConfirm;
+        }
+
+        async function refreshCompareBom() {
+            if (!currentCompareFilename) return;
+            const res = await api.invoke('CompareBom', currentCompareFilename);
+            if (res.status === 'error') {
+                if (currentCompareData.length === 0) customAlert(res.message);
+                return;
+            }
+
+            currentCompareData = res.data;
+            renderCompareTable();
+        }
+
+        function renderCompareTable() {
+            document.getElementById('settle-bar').style.display = 'flex';
+            document.getElementById('check-all').checked = true;
+
+            const tbody = document.querySelector('#compare-table tbody');
+            tbody.innerHTML = '';
+            
+            const order = { 'green': 1, 'yellow': 2, 'red': 3 };
+            currentCompareData.sort((a, b) => order[a.status] - order[b.status]);
+
+            currentCompareData.forEach((row, index) => {
+                const tr = document.createElement('tr');
+                tr.className = 'row-' + row.status;
+                let statusText = row.status === 'green' ? '✓ 充足划算' : (row.status === 'yellow' ? '充足但较贵' : '库存不足');
+                
+                const hasJlcPrice = row.jlc_price > 0 || row.jlc_subtotal > 0;
+                const jlcTotal = hasJlcPrice ? row.jlc_subtotal.toFixed(2) : '-';
+                const jlcPriceStr = hasJlcPrice ? row.jlc_price : '-';
+                const localTotal = (row.local_qty > 0 && row.local_price > 0) ? (row.req_qty * row.local_price).toFixed(2) : '-';
+
+                tr.innerHTML = `
+                    <td style="text-align:center;"><input type="checkbox" class="row-check" data-index="${index}" checked onchange="updateSettleBarTotals()"></td>
+                    <td>${row.category}</td>
+                    <td>${row.name}</td>
+                    <td>${row.footprint}</td>
+                    <td>${row.req_qty}</td>
+                    <td>${row.moq_qty}</td>
+                    <td>${row.local_qty > 0 ? row.local_qty : '-'}</td>
+                    <td>${jlcPriceStr}</td>
+                    <td>${row.local_price > 0 ? row.local_price : '-'}</td>
+                    <td style="font-weight: bold; color: #d9534f;">${hasJlcPrice ? '¥ ' + jlcTotal : '-'}</td>
+                    <td style="font-weight: bold; color: #5cb85c;">${localTotal !== '-' ? '¥ ' + localTotal : '-'}</td>
+                    <td>${statusText}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            updateSettleBarTotals();
+        }
+
+        function updateSettleBarTotals() {
+            let originalTotal = 0;
+            let substitutableTotal = 0;
+            let deductionTotal = 0;
+
+            const checks = document.querySelectorAll('.row-check:checked');
+            for (let chk of checks) {
+                const idx = chk.getAttribute('data-index');
+                const item = currentCompareData[idx];
+                
+                const hasJlcPrice = item.jlc_price > 0 || item.jlc_subtotal > 0;
+                if (hasJlcPrice) {
+                    originalTotal += item.jlc_subtotal;
+                    if (item.local_qty >= item.req_qty) {
+                        substitutableTotal += item.jlc_subtotal;
+                    }
+                }
+                if (item.local_item_id && item.local_qty >= item.req_qty) {
+                    deductionTotal += item.req_qty * item.local_price;
+                }
+            }
+            
+            document.getElementById('compare-summary').innerText = `💰 勾选项汇总 - 原总价: ¥ ${originalTotal.toFixed(2)} | 🏠 本地可替代真实需求总价: ¥ ${substitutableTotal.toFixed(2)} | 💸 本次库存扣除总价: ¥ ${deductionTotal.toFixed(2)}`;
+        }
+
+        async function settleSelected() {
+            const checks = document.querySelectorAll('.row-check:checked');
+            const itemsToDeduct = [];
+            const insufficientItems = [];
+            
+            for(let chk of checks) {
+                const idx = chk.getAttribute('data-index');
+                const item = currentCompareData[idx];
+                
+                // 如果本地根本没有这条记录，或者库存为 0，直接跳过不扣除
+                if (!item.local_item_id || item.local_qty === 0) {
+                    continue; 
+                }
+                
+                // 有库存但不足以扣除
+                if (item.local_qty > 0 && item.local_qty < item.req_qty) {
+                    insufficientItems.push(`• ${item.name} (${item.footprint}): 需 ${item.req_qty}, 仅剩 ${item.local_qty}`);
+                    continue;
+                }
+                
+                itemsToDeduct.push({
+                    id: item.local_item_id,
+                    deduct_qty: item.req_qty
+                });
+            }
+
+            if (insufficientItems.length > 0) {
+                customAlert(`【库存不足】停止结算！以下元器件库存不足以完成扣除：\n\n${insufficientItems.join('\n')}`);
+                return;
+            }
+            
+            if (itemsToDeduct.length === 0) {
+                customAlert("勾选项中没有需要扣除的有效库存项（可能全是零库存或本地未收录的项）。");
+                return;
+            }
+            
+            customConfirm(`确定要扣除这 ${itemsToDeduct.length} 项元器件的库存吗？`, async () => {
+                const res = await api.invoke('SettleInventory', { items: itemsToDeduct, filename: currentCompareFilename });
+                if (res.status === 'success') {
+                    showToast("结算成功！已扣除相应的库存。");
+                    document.querySelector('#compare-table tbody').innerHTML = '<tr><td colspan="12" style="text-align:center">结算完成，请重新导入比对表或前往“库存管理”查看最新库存</td></tr>';
+                    document.getElementById('settle-bar').style.display = 'none';
+                    document.getElementById('check-all').checked = false;
+                    document.getElementById('compare-summary').innerText = '';
+                } else {
+                    customAlert("结算失败：" + res.message);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
